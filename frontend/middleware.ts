@@ -2,14 +2,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(req: NextRequest) {
-  // We only want to protect the frontend pages, not the API routes that the Python agent posts to.
-  // Wait, the Python agent currently only writes to DB directly via psycopg2.
-  // But let's just protect everything for now to be safe, except maybe future API routes.
-  
   const basicAuth = req.headers.get('authorization')
   const url = req.nextUrl
 
-  // The password will be set in Vercel environment variables as DASHBOARD_PASSWORD
+  // The universal password for all tenant accounts
   const pwd = process.env.DASHBOARD_PASSWORD || 'secret123'
 
   if (basicAuth) {
@@ -17,7 +13,14 @@ export function middleware(req: NextRequest) {
     const [user, pwdAttempt] = atob(authValue).split(':')
 
     if (pwdAttempt === pwd) {
-      return NextResponse.next()
+      const requestHeaders = new Headers(req.headers)
+      requestHeaders.set('x-agent-id', user)
+
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      })
     }
   }
 
@@ -26,12 +29,11 @@ export function middleware(req: NextRequest) {
   return new NextResponse('Auth required', {
     status: 401,
     headers: {
-      'WWW-Authenticate': 'Basic realm="Secure Dashboard"',
+      'WWW-Authenticate': 'Basic realm="Secure SaaS Dashboard"',
     },
   })
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|api/ingest|_next/static|_next/image|favicon.ico).*)'],
 }

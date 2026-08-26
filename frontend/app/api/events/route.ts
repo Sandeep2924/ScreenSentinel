@@ -10,8 +10,11 @@ export async function GET(req: NextRequest) {
   const limit = Number(searchParams.get("limit") ?? 50);
   const offset = Number(searchParams.get("offset") ?? 0);
 
+  const agentId = req.headers.get("x-agent-id");
+  if (!agentId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    const { events, total } = await getEvents({ module, severity, search, limit, offset });
+    const { events, total } = await getEvents(agentId, { module, severity, search, limit, offset });
     return NextResponse.json({ events, total, limit, offset });
   } catch (err: any) {
     return NextResponse.json({ error: err.message ?? "Failed to load events" }, { status: 500 });

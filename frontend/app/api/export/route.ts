@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
   const severity = searchParams.get("severity") ?? undefined;
   const search = searchParams.get("search") ?? undefined;
 
-  const { events } = await getEvents({ module, severity, search, limit: 5000, offset: 0 });
+  const agentId = req.headers.get("x-agent-id");
+  if (!agentId) return new NextResponse("Unauthorized", { status: 401 });
+
+  const { events } = await getEvents(agentId, { module, severity, search, limit: 5000, offset: 0 });
 
   const header = ["id", "timestamp", "module", "event_type", "severity", "details", "prev_hash", "row_hash"];
   const lines = [header.join(",")];

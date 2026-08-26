@@ -33,7 +33,8 @@ function isoMinutesAgo(mins: number): string {
 }
 
 async function main() {
-  await clearAllEvents();
+  const agentId = "DEMO_COMPANY_123";
+  await clearAllEvents(agentId);
 
   const totalMinutes = 48 * 60;
   const events: { offsetMin: number; module: string; type: string; severity: string; details: Record<string, unknown> }[] = [];
@@ -117,7 +118,7 @@ async function main() {
   events.sort((a, b) => b.offsetMin - a.offsetMin); // oldest (largest offset) first
 
   for (const e of events) {
-    await insertEvent(isoMinutesAgo(e.offsetMin), e.module, e.type, e.severity, e.details);
+    await insertEvent(agentId, isoMinutesAgo(e.offsetMin), e.module, e.type, e.severity, e.details);
   }
 
   console.log(`Seeded ${events.length} hash-chained demo events.`);
