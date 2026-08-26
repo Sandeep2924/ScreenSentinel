@@ -21,6 +21,7 @@ var/
 *.egg
 venv/
 .venv/
+.env
 
 # Next.js / Node.js
 frontend/node_modules/

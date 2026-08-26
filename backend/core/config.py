@@ -5,6 +5,12 @@ Edit this file to tune the system for your environment without touching logic co
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Webhooks / Integrations
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 # ----------------------------------------------------------------------
 # Paths

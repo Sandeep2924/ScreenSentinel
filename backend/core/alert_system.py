@@ -26,7 +26,7 @@ class AlertSystem:
         self.cooldown_seconds = cooldown_seconds
         self._last_fired = defaultdict(float)  # event_type -> last fire timestamp
         self.email_enabled = False
-        self.webhook_url = None  # set to a Slack/Teams incoming webhook URL to enable
+        self.webhook_url = config.WEBHOOK_URL  # pulled from .env
 
     # ------------------------------------------------------------------
     def _should_fire(self, event_type: str) -> bool:
