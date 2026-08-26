@@ -11,6 +11,7 @@ load_dotenv()
 
 # Webhooks / Integrations
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ----------------------------------------------------------------------
 # Paths

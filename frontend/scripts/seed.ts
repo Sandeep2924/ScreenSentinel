@@ -32,8 +32,8 @@ function isoMinutesAgo(mins: number): string {
   return new Date(Date.now() - mins * 60 * 1000).toISOString();
 }
 
-function main() {
-  clearAllEvents();
+async function main() {
+  await clearAllEvents();
 
   const totalMinutes = 48 * 60;
   const events: { offsetMin: number; module: string; type: string; severity: string; details: Record<string, unknown> }[] = [];
@@ -117,10 +117,10 @@ function main() {
   events.sort((a, b) => b.offsetMin - a.offsetMin); // oldest (largest offset) first
 
   for (const e of events) {
-    insertEvent(isoMinutesAgo(e.offsetMin), e.module, e.type, e.severity, e.details);
+    await insertEvent(isoMinutesAgo(e.offsetMin), e.module, e.type, e.severity, e.details);
   }
 
   console.log(`Seeded ${events.length} hash-chained demo events.`);
 }
 
-main();
+main().catch(console.error);

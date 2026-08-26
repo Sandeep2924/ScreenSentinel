@@ -8,4 +8,4 @@ plyer>=2.1.0
 # GPUtil>=1.4.0         # optional - GPU encoder load heuristic (NVIDIA only)
 # requests>=2.31.0      # optional - Slack/Teams webhook alerts
 python-dotenv>=1.0.0
-requests>=2.31.0
+requests>=2.31.0psycopg2-binary>=2.9.0

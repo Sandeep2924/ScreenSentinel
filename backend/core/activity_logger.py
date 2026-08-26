@@ -11,7 +11,8 @@ hash (like a mini blockchain). If someone edits an old row without recomputing
 every hash after it, verify_integrity() will detect the break.
 """
 
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import hashlib
 import json
 import os
@@ -21,18 +22,21 @@ from core import config
 
 
 class ActivityLogger:
-    def __init__(self, db_path: str = config.DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_url: str = config.DATABASE_URL):
+        self.db_url = db_url
         self._init_db()
+
+    def _get_conn(self):
+        return psycopg2.connect(self.db_url)
 
     # ------------------------------------------------------------------
     def _init_db(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cur = conn.cursor()
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 timestamp TEXT NOT NULL,
                 module TEXT NOT NULL,
                 event_type TEXT NOT NULL,
@@ -44,6 +48,7 @@ class ActivityLogger:
             """
         )
         conn.commit()
+        cur.close()
         conn.close()
 
     # ------------------------------------------------------------------
@@ -60,17 +65,10 @@ class ActivityLogger:
 
     # ------------------------------------------------------------------
     def log_event(self, module: str, event_type: str, severity: str, details: dict = None):
-        """
-        module:     'process_monitor' | 'webcam_monitor' | 'screen_recording_detector'
-                    | 'alert_system' | 'system'
-        event_type: short machine-readable label, e.g. 'RECORDER_DETECTED'
-        severity:   config.SEVERITY_INFO / WARNING / CRITICAL
-        details:    dict of extra context (process name, pid, path, etc.)
-        """
         timestamp = datetime.now(timezone.utc).isoformat()
         details_str = json.dumps(details or {}, default=str)
 
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         cur = conn.cursor()
         prev_hash = self._last_hash(cur)
         row_hash = self._compute_hash(prev_hash, timestamp, module, event_type, severity, details_str)
@@ -78,33 +76,41 @@ class ActivityLogger:
         cur.execute(
             """
             INSERT INTO events (timestamp, module, event_type, severity, details, prev_hash, row_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (timestamp, module, event_type, severity, details_str, prev_hash, row_hash),
         )
         conn.commit()
+        cur.close()
         conn.close()
+
+        # Write to traditional text log file
+        log_line = f"[{timestamp}] [{severity}] [{module}] {event_type} - {details_str}\n"
+        log_file = os.path.join(config.LOG_DIR, "agent.log")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(log_line)
+
         return {"timestamp": timestamp, "module": module, "event_type": event_type,
                 "severity": severity, "details": details or {}}
 
     # ------------------------------------------------------------------
     def get_recent(self, limit: int = 50):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM events ORDER BY id DESC LIMIT ?", (limit,))
+        conn = self._get_conn()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute("SELECT * FROM events ORDER BY id DESC LIMIT %s", (limit,))
         rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
         conn.close()
         return rows
 
     # ------------------------------------------------------------------
     def export_csv(self, out_path: str):
         import csv
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
+        conn = self._get_conn()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT * FROM events ORDER BY id ASC")
         rows = cur.fetchall()
+        cur.close()
         conn.close()
 
         if not rows:
@@ -120,11 +126,11 @@ class ActivityLogger:
     # ------------------------------------------------------------------
     def verify_integrity(self) -> bool:
         """Walks the hash chain and confirms no row has been tampered with."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
+        conn = self._get_conn()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT * FROM events ORDER BY id ASC")
         rows = cur.fetchall()
+        cur.close()
         conn.close()
 
         prev_hash = "GENESIS"
